@@ -2,7 +2,7 @@ import conn from "../../../../lib/db";
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { json } from "stream/consumers";
-
+import bcrypt from "bcrypt";
 const handler = NextAuth({
   providers: [
     CredentialsProvider({
@@ -25,20 +25,25 @@ const handler = NextAuth({
             console.log("Connected to the database successfully");
           }
 
-          const sql = "SELECT * FROM users WHERE email = $1 AND password = $2";
-          const params = [credentials.email, credentials.password];
+          const sql = "SELECT * FROM users WHERE email = $1";
+          const params = [credentials.email];
           console.log("SQL Query:", sql);
           console.log("SQL Parameters:", params);
-
           const result = await client.query(sql, params);
           console.log(result.rows, "rowsss");
+          const passwordMatches = await bcrypt.compare(
+            credentials.password,
+            result.rows[0].password
+          );
+          // const hashed = await bcrypt.compare(credentials.password,result.rows[0].password)
+          console.log(passwordMatches, "hasssssssssssssssssssssssssssssss");
           // sessionStorage.setItem('data',JSON.stringify(result.rows))
           // return NextResponse.json(
           //   { message: "User Login Successfully.",data: result.rows },
           //   { status: 202 } // Use an object with a "status" property
           // );
 
-          if (result.rows.length > 0) {
+          if (passwordMatches) {
             const userRole = result.rows[0].role;
 
             const user = result.rows[0];
@@ -46,12 +51,11 @@ const handler = NextAuth({
 
             if (userRole === "admin") {
               console.log("User is an admin");
-              return Promise.resolve({...user, role: "admin" });
-              console.log('Returning: ', { ...user, role: "admin" }); 
-              
+              return Promise.resolve({ ...user, role: "admin" });
+              console.log("Returning: ", { ...user, role: "admin" });
             } else if (userRole === "driver") {
               console.log("User is a driver");
-              return Promise.resolve({...user, role: "driver" });
+              return Promise.resolve({ ...user, role: "driver" });
             }
           }
 
@@ -75,14 +79,14 @@ const handler = NextAuth({
     },
   },
   session: {
-      strategy: "jwt",
-      session: async (session, user) => {
-          // if (user && user.role) {
-              console.log(user.role, 'usre roooooooooooooooooooo')
-              session.userRole = user.role;
-          // }
-          return Promise.resolve(session);
-      },
+    strategy: "jwt",
+    session: async (session, user) => {
+      // if (user && user.role) {
+      console.log(user.role, "usre roooooooooooooooooooo");
+      session.userRole = user.role;
+      // }
+      return Promise.resolve(session);
+    },
   },
   secret: process.env.NEXTAUTH_SECRET,
 
@@ -91,7 +95,7 @@ const handler = NextAuth({
   },
   session: {
     jwt: true,
-    maxAge: 60000, 
+    maxAge: 60000,
   },
 });
 
